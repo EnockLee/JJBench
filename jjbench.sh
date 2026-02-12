@@ -77,10 +77,14 @@ test_io() {
     echo "🚀 I/O 磁盘测试"
     echo "------------------------------------------"
 
-    io_speed=$(dd if=/dev/zero of=testfile bs=64M count=16 oflag=dsync 2>&1 | \
-    grep -o '[0-9.]\+ MB/s')
+    io_result=$(dd if=/dev/zero of=testfile bs=64M count=16 conv=fdatasync 2>&1)
+    io_speed=$(echo "$io_result" | grep -o '[0-9.]\+ MB/s')
 
-    [ -n "$io_speed" ] && echo "磁盘写入速度 : $io_speed" || echo "磁盘写入速度 : 测试失败"
+    if [ -z "$io_speed" ]; then
+        echo "磁盘写入速度 : 测试失败"
+    else
+        echo "磁盘写入速度 : $io_speed"
+    fi
 
     rm -f testfile
 }
