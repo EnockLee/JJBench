@@ -60,13 +60,41 @@ get_disk_info() {
     df -hT | grep -E '^/dev/'
 }
 
+get_ip() {
+    for api in \
+        "https://api-ipv4.ip.sb/ip" \
+        "https://ip.sb" \
+        "https://myip.ipip.net" \
+        "https://ifconfig.me"
+    do
+        ip=$(curl -4 -s --max-time 3 "$api" 2>/dev/null | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}')
+        if [[ -n "$ip" ]]; then
+            echo "$ip"
+            return
+        fi
+    done
+}
+
+get_ipv6() {
+    for api in \
+        "https://api-ipv6.ip.sb/ip" \
+        "https://ifconfig.me"
+    do
+        ip=$(curl -6 -s --max-time 3 "$api" 2>/dev/null)
+        if [[ -n "$ip" ]]; then
+            echo "$ip"
+            return
+        fi
+    done
+}
+
 get_network_info() {
     echo
     echo "🌐 网络信息"
     echo "------------------------------------------"
 
-    ipv4=$(curl -s4 --max-time 3 ifconfig.me)
-    ipv6=$(curl -s6 --max-time 3 ifconfig.me)
+    ipv4=$(get_ip)
+    ipv6=$(get_ipv6)
 
     [ -n "$ipv4" ] && echo "IPv4 地址    : $ipv4" || echo "IPv4 地址    : 未检测到"
     [ -n "$ipv6" ] && echo "IPv6 地址    : $ipv6" || echo "IPv6 地址    : 未检测到"
