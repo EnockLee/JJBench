@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="0.2"
+VERSION="0.3"
 
 print_header() {
     [ -t 1 ] && clear
@@ -37,7 +37,11 @@ get_system_info() {
     echo "运行时间     : $(get_uptime)"
 
     virt=$(systemd-detect-virt 2>/dev/null)
-    [ -n "$virt" ] && echo "虚拟化类型   : $virt"
+    if [ -n "$virt" ]; then
+        echo "虚拟化类型   : $virt"
+    else
+        echo "虚拟化类型   : 未检测到"
+    fi
 }
 
 get_cpu_info() {
@@ -70,34 +74,17 @@ get_disk_info() {
     echo "🗄 磁盘信息"
     echo "------------------------------------------"
     df -hT | grep -E '^/dev/'
+
+    fs_type=$(df -T / | awk 'NR==2 {print $2}')
+    echo "根分区文件系统 : $fs_type"
 }
 
 get_ip() {
-    for api in \
-        "https://api-ipv4.ip.sb/ip" \
-        "https://ip.sb" \
-        "https://myip.ipip.net" \
-        "https://ifconfig.me"
-    do
-        ip=$(curl -4 -s --max-time 3 "$api" 2>/dev/null | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}')
-        if [[ -n "$ip" ]]; then
-            echo "$ip"
-            return
-        fi
-    done
+    curl -4 -s --max-time 3 https://api-ipv4.ip.sb/ip 2>/dev/null
 }
 
 get_ipv6() {
-    for api in \
-        "https://api-ipv6.ip.sb/ip" \
-        "https://ifconfig.me"
-    do
-        ip=$(curl -6 -s --max-time 3 "$api" 2>/dev/null)
-        if [[ -n "$ip" ]]; then
-            echo "$ip"
-            return
-        fi
-    done
+    curl -6 -s --max-time 3 https://api-ipv6.ip.sb/ip 2>/dev/null
 }
 
 get_network_info() {
@@ -126,6 +113,10 @@ get_network_info() {
 
     bbr=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk '{print $3}')
     [ -n "$bbr" ] && echo "TCP 拥塞算法 : $bbr"
+
+    echo
+    echo "网络延迟测试 (ping 8.8.8.8)"
+    ping -c 3 8.8.8.8 | grep avg | awk -F'/' '{print "平均延迟      : "$5" ms"}'
 }
 
 test_io() {
@@ -133,11 +124,19 @@ test_io() {
     echo "🚀 I/O 磁盘测试"
     echo "------------------------------------------"
 
-    io_result=$(dd if=/dev/zero of=testfile bs=1M count=1024 oflag=direct 2>&1)
+    virt=$(systemd-detect-virt 2>/dev/null)
+
+    if [[ "$virt" == "lxc" ]]; then
+        echo "检测到 LXC 容器，使用兼容模式测试..."
+        io_result=$(dd if=/dev/zero of=testfile bs=1M count=512 2>&1)
+    else
+        io_result=$(dd if=/dev/zero of=testfile bs=1M count=1024 oflag=direct 2>&1)
+    fi
+
     io_speed=$(echo "$io_result" | grep -o '[0-9.]\+ MB/s')
 
     if [ -z "$io_speed" ]; then
-        echo "磁盘写入速度 : 测试失败"
+        echo "磁盘写入速度 : 测试失败（可能被宿主限制）"
     else
         echo "磁盘写入速度 : $io_speed"
     fi
