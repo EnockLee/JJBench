@@ -26,7 +26,7 @@ A simple Chinese VPS benchmark & diagnostic tool
 
 ---
 
-## 📦 当前功能 (v0.2)
+## 📦 当前功能 (v0.3)
 
 ### 📦 系统信息
 
